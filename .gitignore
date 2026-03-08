@@ -1,0 +1,14 @@
+# Secrets
+.env
+.hf
+
+# Logs
+error.log
+
+# Media files
+*.mp3
+*.wav
+
+# Python
+__pycache__/
+*.pyc
