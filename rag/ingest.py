@@ -1,3 +1,5 @@
+# Document Ingestion Script
+# Loads .txt documents from the data/ folder, chunks them, and indexes them into ChromaDB.
 import os
 from dotenv import load_dotenv
 
@@ -11,7 +13,9 @@ load_dotenv()
 DATA_FOLDER = "data"
 DB_DIR = "chroma_db"
 
+
 def load_documents():
+    """Loads all .txt files from the DATA_FOLDER directory."""
     docs = []
     for filename in os.listdir(DATA_FOLDER):
         if filename.endswith(".txt"):
@@ -20,24 +24,19 @@ def load_documents():
             docs.extend(loader.load())
     return docs
 
+
 def main():
     documents = load_documents()
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100
-    )
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
     chunks = splitter.split_documents(documents)
-
     embeddings = OpenAIEmbeddings()
-
     vectordb = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
         persist_directory=DB_DIR
     )
+    print(f"Ingested {len(chunks)} chunks into ChromaDB at '{DB_DIR}'.")
 
-    print(f"Ingested {len(chunks)} chunks into ChromaDB.")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,31 @@
+# Python dependencies for the Voice AI Pipeline project
+# Install with: pip install -r requirements.txt
+
+# Audio
+sounddevice
+numpy
+
+# Speech Recognition
+SpeechRecognition
+openai-whisper    # Optional: for local ASR (heavy download)
+
+# LangChain & RAG
+langchain
+langchain-openai
+langchain-community
+langchain-core
+langchain-huggingface
+faiss-cpu
+
+# LLM Client
+openai            # Used for Groq-compatible API calls
+
+# Text-to-Speech
+edge-tts
+pyttsx3           # Used by the standalone voice bot script
+
+# Web UI
+streamlit
+
+# Utilities
+python-dotenv

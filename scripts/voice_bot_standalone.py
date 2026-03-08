@@ -1,5 +1,7 @@
+# Voice Bot — Standalone Script (pyttsx3 + SpeechRecognition)
+# A self-contained voice assistant that uses local TTS (pyttsx3) and Google ASR.
+# This is a standalone alternative to the full modular pipeline (main.py).
 import os
-import sys
 import time
 import warnings
 import speech_recognition as sr
@@ -11,11 +13,12 @@ import wave
 warnings.filterwarnings("ignore")
 
 # -----------------------------------------------------------------------------
-# 1. Configuration
+# Configuration
 # -----------------------------------------------------------------------------
-GROQ_API_KEY = "your_api_key_here" # REPLACE WITH YOUR KEY
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    raise EnvironmentError("GROQ_API_KEY environment variable is not set.")
 
-# Use the newer import to stop the deprecation warning
 try:
     from langchain_huggingface import HuggingFaceEmbeddings
 except ImportError:
@@ -28,90 +31,72 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
-class RAGReasoningEngine:
+
+class VoiceBotStandalone:
     def __init__(self):
-        print("--> Initializing Bot Systems...")
-        
-        # 1. Text-to-Speech Engine
+        print("--> Initializing Standalone Voice Bot...")
+
+        # Local text-to-speech
         self.tts_engine = pyttsx3.init()
-        self.tts_engine.setProperty('rate', 190) # Slightly faster speech
-        
-        # 2. Embeddings
-        self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        
-        # 3. LLM (Groq)
+        self.tts_engine.setProperty('rate', 190)
+
+        # LangChain components
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
         self.llm = ChatOpenAI(
             base_url="https://api.groq.com/openai/v1",
             api_key=GROQ_API_KEY,
             model="llama-3.3-70b-versatile",
-            temperature=0.1
+            temperature=0.1,
         )
-        
         self.rag_chain = None
 
     # -------------------------------------------------------------------------
-    # Audio Layer (Fixed for Compatibility)
+    # Audio: Listen and Speak
     # -------------------------------------------------------------------------
     def listen_to_audio(self):
+        """Records 4 seconds of microphone audio and transcribes it to text."""
         print("   [Listening...] Speak now (4s)")
-        
-        fs = 44100  # Sample rate
-        seconds = 4 # Duration
-        
+        fs = 44100
+        seconds = 4
         try:
-            # 1. Record audio (This comes as Float32)
             recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1, dtype='float32')
-            sd.wait()  # Wait until recording is finished
-            
-            # 2. Convert Float32 to Int16 (Required for SpeechRecognition)
-            # This step fixes the "PCM WAV" error
+            sd.wait()
             recording_int16 = (recording * 32767).astype(np.int16)
-            
-            # 3. Save as proper WAV file using wave module
             temp_filename = "temp_mic_input.wav"
             with wave.open(temp_filename, 'wb') as wf:
                 wf.setnchannels(1)
-                wf.setsampwidth(2) # 2 bytes = 16-bit
+                wf.setsampwidth(2)
                 wf.setframerate(fs)
                 wf.writeframes(recording_int16.tobytes())
-            
             print("   [Processing Speech...]")
-            
-            # 4. Recognize
             recognizer = sr.Recognizer()
             with sr.AudioFile(temp_filename) as source:
                 audio_data = recognizer.record(source)
-                
                 try:
-                    text = recognizer.recognize_google(audio_data)
-                    return text
+                    return recognizer.recognize_google(audio_data)
                 except sr.UnknownValueError:
                     print("   [Could not understand audio]")
                     return None
                 except sr.RequestError:
-                    print("   [API Error]")
+                    print("   [API Error - check internet connection]")
                     return None
-                    
         except Exception as e:
             print(f"   [Mic Error: {e}]")
             return None
 
-    def speak_response(self, text):
-        """Converts text to speech."""
+    def speak_response(self, text: str):
+        """Speaks the given text using the local pyttsx3 TTS engine."""
         start_time = time.time()
-        
-        # Speak the text
         self.tts_engine.say(text)
         self.tts_engine.runAndWait()
-        
-        latency = time.time() - start_time
-        print(f"   [TTS Latency: {latency:.2f}s]")
+        print(f"   [TTS Latency: {time.time() - start_time:.2f}s]")
 
     # -------------------------------------------------------------------------
-    # Knowledge & RAG Logic
+    # RAG: Knowledge Base and Chain
     # -------------------------------------------------------------------------
     def load_knowledge_base(self):
-        # Custom knowledge
         faq_data = [
             "Q: What is Machine Learning? A: Machine learning is a subset of AI where computers learn from data.",
             "Q: Who are you? A: I am an AI assistant powered by Groq and LangChain.",
@@ -123,7 +108,6 @@ class RAGReasoningEngine:
         documents = self.load_knowledge_base()
         vector_store = FAISS.from_documents(documents, self.embeddings)
         retriever = vector_store.as_retriever(search_kwargs={"k": 2})
-        
         template = """
         You are a helpful voice assistant. Answer concisely based on context.
         Context: {context}
@@ -131,37 +115,36 @@ class RAGReasoningEngine:
         Answer:
         """
         prompt = ChatPromptTemplate.from_template(template)
-        
         self.rag_chain = (
-            {"context": retriever, "query": RunnablePassthrough()} 
-            | prompt 
-            | self.llm 
+            {"context": retriever, "query": RunnablePassthrough()}
+            | prompt
+            | self.llm
             | StrOutputParser()
         )
 
-    def process_request(self, user_query):
+    def process_request(self, user_query: str):
+        """Generates and speaks a response to the user query."""
         print("Bot: Thinking...")
         response = self.rag_chain.invoke(user_query)
         print(f"Bot: {response}")
         self.speak_response(response)
 
+
 # -----------------------------------------------------------------------------
-# Main Execution
+# Main Loop
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     if "gsk_" not in GROQ_API_KEY:
-        print("ERROR: Paste your Groq API Key!")
+        print("ERROR: Set your GROQ_API_KEY environment variable.")
     else:
-        engine = RAGReasoningEngine()
-        engine.build_vector_index()
-        
-        print("\n" + "="*50)
-        print("BOT IS READY. SPEAK TO INTERACT.")
-        print("="*50)
-        
+        bot = VoiceBotStandalone()
+        bot.build_vector_index()
+        print("\n" + "=" * 50)
+        print("BOT IS READY. SPEAK TO INTERACT. (Ctrl+C to quit)")
+        print("=" * 50)
         while True:
-            user_speech = engine.listen_to_audio()
+            user_speech = bot.listen_to_audio()
             if user_speech:
                 print(f"User: {user_speech}")
-                engine.process_request(user_speech)
+                bot.process_request(user_speech)
                 print("-" * 40)

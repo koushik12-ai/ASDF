@@ -4,11 +4,15 @@
 
 # Logs
 error.log
+push_error.log
 
-# Media files
+# Media files (generated at runtime)
 *.mp3
 *.wav
 
 # Python
 __pycache__/
 *.pyc
+
+# Vector databases
+chroma_db/

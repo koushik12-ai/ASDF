@@ -1,41 +1,42 @@
 import time
 import numpy as np
 
-# Import all modules
-from module1_audio_input import AudioStreamingClient
-from module2_noise_suppressor import NoiseSuppressor
-from module3_vad import VoiceActivityDetector
-from module4_asr import SpeechToTextEngine
-from module5_llm_rag import IntelligenceEngine
-from module6_tts_output import TextToSpeechEngine
+# Import all pipeline modules
+from pipeline.audio_input import AudioStreamingClient
+from pipeline.noise_suppressor import NoiseSuppressor
+from pipeline.vad import VoiceActivityDetector
+from pipeline.asr import SpeechToTextEngine
+from pipeline.intelligence_engine import IntelligenceEngine
+from pipeline.tts_engine import TTSEngine
+
 
 class VoiceAssistant:
     def __init__(self):
-        print("="*40)
+        print("=" * 40)
         print("Initializing Voice AI Pipeline...")
-        print("="*40)
+        print("=" * 40)
 
-        # 1. Audio Input
+        # Stage 1: Audio Input
         self.audio_input = AudioStreamingClient(rate=16000, frames_per_buffer=480)
-        
-        # 2. Noise Suppression
+
+        # Stage 2: Noise Suppression
         self.noise_suppressor = NoiseSuppressor(rate=16000)
-        
-        # 3. VAD
+
+        # Stage 3: Voice Activity Detection
         self.vad = VoiceActivityDetector(sample_rate=16000)
-        
-        # 4. ASR
+
+        # Stage 4: Automatic Speech Recognition
         self.asr = SpeechToTextEngine()
-        
-        # 5. LLM
+
+        # Stage 5: LLM + RAG Intelligence
         self.llm = IntelligenceEngine()
-        
-        # 6. TTS
-        self.tts = TextToSpeechEngine()
-        
-        print("="*40)
+
+        # Stage 6: Text-to-Speech Output
+        self.tts = TTSEngine()
+
+        print("=" * 40)
         print("System Ready! Speak into the microphone.")
-        print("="*40)
+        print("=" * 40)
 
     def run(self):
         self.audio_input.start_stream()
